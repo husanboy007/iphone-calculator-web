@@ -1,24 +1,12 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Begim iPhone Kalkulyator</title>
+
   <style>
-    /* Mobil ekranlar uchun */
-@media (max-width: 600px) {
-  .calculator {
-      transform: scale(1.4);
-      margin-top: 50px;
-  }
-
-  body {
-      padding: 0;
-      margin: 0;
-      overflow-x: hidden;
-  }a
-}
-
+    /* ========= Global uslublar ========= */
     * {
       box-sizing: border-box;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
@@ -34,6 +22,7 @@
       color: #fff;
     }
 
+    /* ========= Kalkulyator konteyneri ========= */
     .calc-wrapper {
       background: #000;
       border-radius: 32px;
@@ -45,6 +34,7 @@
       max-width: 100%;
     }
 
+    /* Ekran qismi */
     .calc-screen {
       text-align: right;
       margin-bottom: 18px;
@@ -64,6 +54,7 @@
       word-wrap: break-word;
     }
 
+    /* Tugmalar panjarasi */
     .buttons {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -71,6 +62,7 @@
       gap: 10px;
     }
 
+    /* ========= Tugmalar (umumiy) ========= */
     button {
       border: none;
       border-radius: 999px;
@@ -79,49 +71,76 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.06s ease, filter 0.06s ease, box-shadow 0.06s ease;
       outline: none;
       user-select: none;
+      transition:
+        transform 0.08s ease,
+        filter 0.08s ease,
+        box-shadow 0.08s ease;
     }
 
-    button:active {
-      transform: scale(0.97);
+    /* JS orqali beriladigan animatsiya klassi */
+    .btn-pressed {
+      transform: scale(0.93);
       filter: brightness(1.2);
       box-shadow: 0 0 0 rgba(0, 0, 0, 0);
     }
 
+    /* Funksional tugmalar (AC, ±, %, ←) */
     .btn-func {
       background: #a5a5a5;
       color: #000;
       font-size: 20px;
     }
 
+    /* Raqam tugmalari */
     .btn-num {
       background: #333333;
       color: #fff;
     }
 
+    /* Amallar tugmalari (+, −, ×, ÷) */
     .btn-op {
       background: #ff9500;
       color: #fff;
       font-size: 30px;
     }
 
+    /* "0" tugmasi ikki ustun egallaydi */
     .btn-zero {
       grid-column: span 2;
       justify-content: flex-start;
       padding-left: 24px;
     }
 
+    /* "=" tugmasi */
     .btn-eq {
       background: #ff9500;
       color: #fff;
     }
 
+    /* ========= Responsiv (mobil) uslublar ========= */
+
+    /* Juda kichik ekranlarda konteyner chetga urilib qolmasin */
     @media (max-width: 400px) {
       .calc-wrapper {
         width: 100%;
         margin: 12px;
+      }
+    }
+
+    /* Telefonlarda kalkulyatorni bir oz kattalashtirish */
+    @media (max-width: 600px) {
+      .calc-wrapper {
+        transform: scale(1.25);
+        transform-origin: top center;
+        margin-top: 50px;
+      }
+
+      body {
+        padding: 0;
+        margin: 0;
+        overflow-x: hidden;
       }
     }
   </style>
@@ -136,7 +155,7 @@
     <div class="buttons">
       <!-- 1-qator -->
       <button class="btn-func" data-action="ac">AC</button>
-      <button class="btn small" data-action="back">←</button>
+      <button class="btn-func" data-action="back">←</button>
       <button class="btn-func" data-action="sign">±</button>
       <button class="btn-func" data-action="percent">%</button>
       <button class="btn-op"   data-op="divide">÷</button>
@@ -166,218 +185,298 @@
     </div>
   </div>
 
-<script>
-  const display = document.getElementById("display");
-  const history = document.getElementById("history");
+  <script>
+    /* =========================
+       DOM elementlar
+    ========================== */
+    const display = document.getElementById("display");
+    const history = document.getElementById("history");
 
-  let expression = "";        // to'liq ifoda: 6+62*5
-  let currentValue = "0";     // ekranda ko'rsatiladigan son
-  let justEvaluated = false;  // hozirgina natija chiqdimi-yo'qmi
+    /* =========================
+       Kalkulyator holati
+    ========================== */
+    let expression    = "";   // to‘liq ifoda: masalan, "6+62*5"
+    let currentValue  = "0";  // ekranda ko‘rinadigan son
+    let justEvaluated = false; // hozirgina natija chiqarildimi?
 
-  function backspace() {
-  if (justEvaluated) {
-    expression = "";
-    currentValue = "0";
-    justEvaluated = false;
-    updateScreen();
-    return;
-  }
-
-  if (currentValue.length > 1) {
-    currentValue = currentValue.slice(0, -1);
-  } else {
-    currentValue = "0";
-  }
-
-  expression = expression.slice(0, -1);
-  updateScreen();
-}
-
-  function prettifyNumber(str) {
-    // Xatolik bo'lsa aynan o'shani chiqaramiz
-    if (str === "Xatolik" || str === "0 ga bo'lib bo'lmaydi") return str;
-
-    const num = Number(str);
-    if (!isFinite(num)) return str;
-
-    const isNegative = num < 0;
-    let [intPart, decPart] = Math.abs(num).toString().split(".");
-
-    intPart = Number(intPart).toLocaleString("en-US");
-    return (isNegative ? "-" : "") + (decPart ? intPart + "." + decPart : intPart);
-  }
-
-  function humanExpression(expr) {
-    return expr
-      .replace(/\*/g, "×")
-      .replace(/\//g, "÷");
-  }
-
-  function updateScreen() {
-    display.textContent = prettifyNumber(currentValue);
-    history.textContent = humanExpression(expression);
-  }
-
-  // Raqam bosilganda
-  function inputNumber(num) {
-    if (justEvaluated) {
-      currentValue = num;
-      expression = num;
-      justEvaluated = false;
-    } else {
-      if (num === "." && currentValue.includes(".")) {
-        return; // ikki marta nuqta bo'lmasin
-      }
-      if (currentValue === "0" && num !== ".") {
-        currentValue = num;
-      } else {
-        currentValue += num;
-      }
-      expression += num;
+    /* =========================
+       Animatsiya yordamchi
+    ========================== */
+    function animatePress(button) {
+      button.classList.add("btn-pressed");
+      setTimeout(() => button.classList.remove("btn-pressed"), 90);
     }
-    updateScreen();
-  }
 
-  // Amallar (+ - × ÷)
-  function setOperation(op) {
-    const opSymbol =
-      op === "plus" ? "+" :
-      op === "minus" ? "-" :
-      op === "multiply" ? "*" :
-      op === "divide" ? "/" : "";
-
-    if (justEvaluated) {
-      // Natijadan keyin amal bosilsa: ifodani natijadan boshlaymiz
-      expression = currentValue + opSymbol;
-      justEvaluated = false;
-    } else {
-      // Oxiri amal bo'lsa, almashtiramiz
-      if ("+-*/".includes(expression.slice(-1))) {
-        expression = expression.slice(0, -1) + opSymbol;
-      } else {
-        expression += opSymbol;
+    /* =========================
+       Backspace funksiyasi
+    ========================== */
+    function backspace() {
+      // Agar hozir natija chiqib turgan bo‘lsa – hammasini tozalaymiz
+      if (justEvaluated) {
+        expression = "";
+        currentValue = "0";
+        justEvaluated = false;
+        updateScreen();
+        return;
       }
-    }
-    currentValue = "";
-    updateScreen();
-  }
 
-  // "=" bosilganda — butun ifodani hisoblash
-  function calculate() {
-    if (!expression) return;
+      // Ekrandagi sonni 1 ta belgidan qisqartiramiz
+      if (currentValue.length > 1) {
+        currentValue = currentValue.slice(0, -1);
+      } else {
+        currentValue = "0";
+      }
 
-    // Oxiri amal bilan tugasa, oxirgi amalni olib tashlaymiz
-    if ("+-*/".includes(expression.slice(-1))) {
+      // Ifodani ham qisqartiramiz
       expression = expression.slice(0, -1);
-    }
-
-    try {
-      const result = eval(expression); // bu yerda 6+62*5 ni hisoblaydi
-      currentValue = String(result);
-      expression = String(result);   // natijadan davom ettirish mumkin bo'lishi uchun
-      justEvaluated = true;
-      updateScreen();
-    } catch (e) {
-      currentValue = "Xatolik";
-      justEvaluated = true;
       updateScreen();
     }
-  }
 
-  // AC
-  function clearAll() {
-    expression = "";
-    currentValue = "0";
-    justEvaluated = false;
-    updateScreen();
-  }
+    /* =========================
+       Sonni chiroyli formatlash
+       12345.67 -> "12,345.67"
+    ========================== */
+    function prettifyNumber(str) {
+      // Xatolik matnlarini o‘zgartirmay qaytaramiz
+      if (str === "Xatolik" || str === "0 ga bo'lib bo'lmaydi") return str;
 
-  // +/–
-  function toggleSign() {
-    if (!currentValue || currentValue === "0" || currentValue === "Xatolik") return;
-    if (currentValue.startsWith("-")) {
-      currentValue = currentValue.slice(1);
-    } else {
-      currentValue = "-" + currentValue;
+      const num = Number(str);
+      if (!isFinite(num)) return str;
+
+      const isNegative = num < 0;
+      let [intPart, decPart] = Math.abs(num).toString().split(".");
+
+      intPart = Number(intPart).toLocaleString("en-US");
+      return (isNegative ? "-" : "") +
+             (decPart ? intPart + "." + decPart : intPart);
     }
 
-    // Ifodaning oxirini ham shu qiymatga moslashtiramiz
-    const lastOpIndex = Math.max(
-      expression.lastIndexOf("+"),
-      expression.lastIndexOf("-"),
-      expression.lastIndexOf("*"),
-      expression.lastIndexOf("/")
-    );
-    if (lastOpIndex === -1) {
-      expression = currentValue;
-    } else {
-      expression = expression.slice(0, lastOpIndex + 1) + currentValue;
+    /* =========================
+       Ifodani odamga qulay ko‘rinishga keltirish
+       "*" -> "×", "/" -> "÷"
+    ========================== */
+    function humanExpression(expr) {
+      return expr
+        .replace(/\*/g, "×")
+        .replace(/\//g, "÷");
     }
-    updateScreen();
-  }
 
-  // %
-  function percent() {
-    const val = parseFloat(currentValue || "0");
-    currentValue = String(val / 100);
-    // Ifodada ham oxirgi sonni almashtiramiz
-    const lastOpIndex = Math.max(
-      expression.lastIndexOf("+"),
-      expression.lastIndexOf("-"),
-      expression.lastIndexOf("*"),
-      expression.lastIndexOf("/")
-    );
-    if (lastOpIndex === -1) {
-      expression = currentValue;
-    } else {
-      expression = expression.slice(0, lastOpIndex + 1) + currentValue;
+    /* =========================
+       Ekranni yangilash
+    ========================== */
+    function updateScreen() {
+      display.textContent = prettifyNumber(currentValue);
+      history.textContent = humanExpression(expression);
     }
-    updateScreen();
-  }
 
-  // 🔘 Button bosishlar
-  document.querySelectorAll(".btn-num").forEach(btn => {
-    btn.addEventListener("click", () => inputNumber(btn.dataset.num));
-  });
+    /* =========================
+       Raqam kiritish
+    ========================== */
+    function inputNumber(num) {
+      // Natija chiqqandan keyin raqam bossak – yangi ifoda boshlanadi
+      if (justEvaluated) {
+        currentValue = num;
+        expression = num;
+        justEvaluated = false;
+      } else {
+        // Nuqta ikki marta bosilmasin
+        if (num === "." && currentValue.includes(".")) {
+          return;
+        }
 
-  document.querySelectorAll(".btn-op").forEach(btn => {
-    btn.addEventListener("click", () => setOperation(btn.dataset.op));
-  });
+        if (currentValue === "0" && num !== ".") {
+          currentValue = num;
+        } else {
+          currentValue += num;
+        }
 
-  document.querySelectorAll("[data-action]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const action = btn.dataset.action;
-      if (action === "ac") clearAll();
-      else if (action === "equals") calculate();
-      else if (action === "sign") toggleSign();
-      else if (action === "percent") percent();
+        expression += num;
+      }
+
+      updateScreen();
+    }
+
+    /* =========================
+       Amallarni o‘rnatish (+, -, ×, ÷)
+    ========================== */
+    function setOperation(op) {
+      const opSymbol =
+        op === "plus"     ? "+" :
+        op === "minus"    ? "-" :
+        op === "multiply" ? "*" :
+        op === "divide"   ? "/" : "";
+
+      if (!opSymbol) return;
+
+      if (justEvaluated) {
+        // Natijadan keyin amal bossak – ifoda natijadan boshlanadi
+        expression = currentValue + opSymbol;
+        justEvaluated = false;
+      } else {
+        const lastChar = expression.slice(-1);
+
+        // Oxiri allaqachon amal bo‘lsa – almashtiramiz
+        if ("+-*/".includes(lastChar)) {
+          expression = expression.slice(0, -1) + opSymbol;
+        } else {
+          expression += opSymbol;
+        }
+      }
+
+      currentValue = "";
+      updateScreen();
+    }
+
+    /* =========================
+       "=" bosilganda hisoblash
+    ========================== */
+    function calculate() {
+      if (!expression) return;
+
+      // Ifoda oxiri amal bilan tugasa – amalni olib tashlaymiz
+      if ("+-*/".includes(expression.slice(-1))) {
+        expression = expression.slice(0, -1);
+      }
+
+      try {
+        const result = eval(expression); // 6+62*5 ni hisoblaydi
+        currentValue = String(result);
+        expression   = String(result);   // natijadan davom ettirish uchun
+        justEvaluated = true;
+        updateScreen();
+      } catch (e) {
+        currentValue  = "Xatolik";
+        justEvaluated = true;
+        updateScreen();
+      }
+    }
+
+    /* =========================
+       AC — tozalash
+    ========================== */
+    function clearAll() {
+      expression    = "";
+      currentValue  = "0";
+      justEvaluated = false;
+      updateScreen();
+    }
+
+    /* =========================
+       +/− – ishorani almashtirish
+    ========================== */
+    function toggleSign() {
+      if (!currentValue || currentValue === "0" || currentValue === "Xatolik") return;
+
+      if (currentValue.startsWith("-")) {
+        currentValue = currentValue.slice(1);
+      } else {
+        currentValue = "-" + currentValue;
+      }
+
+      // Ifodaning oxirgi sonini ham shunga moslab o‘zgartiramiz
+      const lastOpIndex = Math.max(
+        expression.lastIndexOf("+"),
+        expression.lastIndexOf("-"),
+        expression.lastIndexOf("*"),
+        expression.lastIndexOf("/")
+      );
+
+      if (lastOpIndex === -1) {
+        expression = currentValue;
+      } else {
+        expression = expression.slice(0, lastOpIndex + 1) + currentValue;
+      }
+
+      updateScreen();
+    }
+
+    /* =========================
+       % — foiz
+    ========================== */
+    function percent() {
+      const val = parseFloat(currentValue || "0");
+      currentValue = String(val / 100);
+
+      const lastOpIndex = Math.max(
+        expression.lastIndexOf("+"),
+        expression.lastIndexOf("-"),
+        expression.lastIndexOf("*"),
+        expression.lastIndexOf("/")
+      );
+
+      if (lastOpIndex === -1) {
+        expression = currentValue;
+      } else {
+        expression = expression.slice(0, lastOpIndex + 1) + currentValue;
+      }
+
+      updateScreen();
+    }
+
+    /* =========================
+       Tugmalar uchun eventlar
+    ========================== */
+
+    // Raqam tugmalari
+    document.querySelectorAll(".btn-num").forEach(btn => {
+      btn.addEventListener("click", () => {
+        animatePress(btn);
+        inputNumber(btn.dataset.num);
+      });
     });
-  });
 
-  // ⌨️ Klaviatura qo'llab-quvvatlash
-document.addEventListener("keydown", (e) => {
-  const key = e.key;
+    // Amal tugmalari (+, −, ×, ÷)
+    document.querySelectorAll(".btn-op").forEach(btn => {
+      btn.addEventListener("click", () => {
+        animatePress(btn);
+        setOperation(btn.dataset.op);
+      });
+    });
 
-  if (key >= "0" && key <= "9") {
-    inputNumber(key);
-  } else if (key === ".") {
-    inputNumber(".");
-  } else if (key === "+") {
-    setOperation("plus");
-  } else if (key === "-") {
-    setOperation("minus");
-  } else if (key === "*") {
-    setOperation("multiply");
-  } else if (key === "/") {
-    setOperation("divide");
-  } else if (key === "Enter" || key === "=") {
-    e.preventDefault();
-    calculate();
-  } else if (key === "Escape") {
-    clearAll();
-  } else if (key === "Backspace") {
-    backspace();
-  }
-});
-</script>
+    // Funksional tugmalar (AC, =, ±, %, ←)
+    document.querySelectorAll("[data-action]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        animatePress(btn);
+        const action = btn.dataset.action;
 
+        if (action === "ac")      clearAll();
+        else if (action === "equals")  calculate();
+        else if (action === "sign")    toggleSign();
+        else if (action === "percent") percent();
+        else if (action === "back")    backspace();
+      });
+    });
+
+    /* =========================
+       Klaviatura yordamida boshqarish
+    ========================== */
+    document.addEventListener("keydown", (e) => {
+      const key = e.key;
+
+      if (key >= "0" && key <= "9") {
+        inputNumber(key);
+      } else if (key === ".") {
+        inputNumber(".");
+      } else if (key === "+") {
+        setOperation("plus");
+      } else if (key === "-") {
+        setOperation("minus");
+      } else if (key === "*") {
+        setOperation("multiply");
+      } else if (key === "/") {
+        setOperation("divide");
+      } else if (key === "Enter" || key === "=") {
+        e.preventDefault();
+        calculate();
+      } else if (key === "Escape") {
+        clearAll();
+      } else if (key === "Backspace") {
+        backspace();
+      }
+    });
+
+    // Boshlang'ich holatda ekranni yangilab qo'yamiz
+    updateScreen();
+  </script>
+</body>
+</html>
